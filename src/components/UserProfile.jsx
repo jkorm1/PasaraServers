@@ -1,8 +1,9 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useNavigate } from 'react-router-dom';
 
-const UserProfile = ({ onLogout }) => {
+
+const UserProfile = ({setIsLoggedIn}) => {
   const user = {
     name: "Solomon Attipoe",
     role: "Salesperson",
@@ -12,11 +13,39 @@ const UserProfile = ({ onLogout }) => {
     averageSale: 200,
   };
 
-  const navigate = useNavigate();
-  const handleLogout = () => { 
-    onLogout(); 
-    navigate('/login'); 
- };
+  const navigate = useNavigate()
+
+    
+const handleLogout = async () => {
+      try {
+          // Send a request to logout the user on the backend
+          const response = await fetch('http://192.168.20.163:8002/servers/logout_user/', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({}),
+              credentials: 'include', // Ensure cookies are sent with the request
+          });
+  
+          const data = await response.json();
+  
+          if (data.message === "Logged Out") {
+              navigate('/authentication')
+              // Clear the cookies and client-side state
+              setIsLoggedIn(false); // Update the login state in parent
+              //Cookies.remove('isLoggedIn'); // Remove the session cookie
+              console.log("User logged out gracefully");
+  
+              // Optionally, you can redirect the user to the login page after logout:
+              // window.location.href = '/login';
+          } else {
+              console.error("Couldn't log out. Error:", data.message);
+          }
+      } catch (error) {
+          console.error("Error during logout:", error);
+      }
+  };
 
   return (
     <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300 ease-in-out">

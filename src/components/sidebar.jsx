@@ -17,7 +17,7 @@ const Sidebar = () => {
           </Link>
         </li>
         <li className="flex flex-col items-center space-y-1 transform transition-transform duration-200 hover:scale-110 p-1">
-          <Link to="/" className="flex flex-col items-center space-y-1">
+          <Link to="/orders" className="flex flex-col items-center space-y-1">
             <ShoppingCart className="w-5 h-5" />
             <span className="text-xs">Orders</span>
           </Link>
@@ -25,7 +25,7 @@ const Sidebar = () => {
         <li className="flex flex-col items-center space-y-1 transform transition-transform duration-200 hover:scale-110 p-1">
           <Link to="/dashboard" className="flex flex-col items-center space-y-1">
             <LayoutDashboard className="w-5 h-5" />
-            <span className="text-xs">Dash</span>
+            <span className="text-xs">Dashboard</span>
           </Link>
         </li>
         <li className="flex flex-col items-center space-y-1 transform transition-transform duration-200 hover:scale-110 p-1">

@@ -4,6 +4,23 @@ import { defineConfig } from "vite"
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '192.168.20.163',
+    port: 5174,
+    hmr: {
+      protocol: 'ws',
+      host: '192.168.20.163',
+      port: 5174,
+      clientPort: 5174,
+      timeout: 1000,
+      overlay: true,
+      poll: 1000,
+    },
+    watch: {
+      usePolling: true,
+      interval: 1000,
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

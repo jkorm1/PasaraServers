@@ -1,19 +1,60 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Cookies from 'js-cookie';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { setcards, setisLoggedIn, setsocket} from '@/Reducer';
 
-function Login({ onLogin, onSignUpClick }) {
+function Login({}) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const dispatch = useDispatch();
+
+    const navigate = useNavigate()
+
+    const authenticateAndConnect = async (username,password) => {
+        try {
+            // Send a request to authenticate the user
+            const response = await fetch('http://192.168.12.163:8002/servers/login_user/',{
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body:JSON.stringify({
+                    username:username,
+                    password: password,
+                }),
+                credentials: 'include', // Ensure cookies are sent with the request
+            });
+            
+            const data = await response.json();
+            
+           
+            if (data.message === "Successfully") {
+                //Cookies.set('isLoggedIn', 'true', { expires: 7 });
+                dispatch(setisLoggedIn(true));
+                navigate('/orders');
+                console.log("at this point the user logged in successfully and isloggedIn is being set to true")
+            } else {
+                console.error("Authentication failed");
+            }
+            
+        } catch (error) {
+            console.error(username,"is not a staff");
+            console.error("Error during authentication:", error);
+        }
+    };
+
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (username && password) {
-            onLogin({ username, password });
-            setUsername('');
-            setPassword('');
+            //onLogin({ username, password });
+            authenticateAndConnect(username,password);
         } else {
             console.log('Please enter both username and password.');
         }
     };
+
 
     return (
         <div className="flex items-center justify-center h-screen w-screen bg-gray-100"> {/* Normal background */}
@@ -48,10 +89,6 @@ function Login({ onLogin, onSignUpClick }) {
                 >
                     Login
                 </button>
-                <p className="text-center text-white text-sm mt-4">
-                    Don't have an account? 
-                    <a href="#" className="text-white hover:underline font-semibold" onClick={onSignUpClick}> Sign Up</a> {/* Changed text color to white */}
-                </p>
             </form>
         </div>
     );

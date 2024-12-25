@@ -1,55 +1,105 @@
-import React, { useState } from 'react';
-import './App.css';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AppLayout } from './components/layout/AppLayout';
 import Login from './components/Login';
+import Orders from './components/Orders';
+import Dashboard from './components/Dashboard';
 import UserProfile from './components/UserProfile';
 import OrderHistory from './components/OrderHistory';
 import Notifications from './components/Notification';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import UserManagement from './components/UserManagement';
-import Dashboard from './components/Dashboard';
-import Orders from './components/Orders';
-
-
+import { useDispatch, useSelector } from 'react-redux';
+import { setisLoggedIn, setUserData } from './Reducer';
 
 function App() {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [cards, setcardsData] = useState([]);
-    return(
-    <Router>
-        <Routes>
+    const dispatch = useDispatch();
+    const isLoggedIn = useSelector((state) => state.gl_variables.isLoggedIn);
+    const [loading, setLoading] = useState(true);
 
-            <Route path="/authentication" element={<Login isLoggedIn={isLoggedIn} 
-                                                    setIsLoggedIn={setIsLoggedIn}
-                                                    cards={cards}
-                                                    setcardsData={setcardsData}/>}
-                                                    />
+    useEffect(() => {
+        const checkSession = async () => {
+            try {
+                const response = await fetch('https://orders-management-control-centre-l52z5.ondigitalocean.app/servers/login_user/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: '',
+                        password: ''
+                    })
+                });
 
-            <Route path="/orders" element={<Orders isLoggedIn={isLoggedIn}
-                                            setIsLoggedIn={setIsLoggedIn} 
-                                            cards={cards}
-                                            setcardsData={setcardsData}/>}
-                                            />
+                const data = await response.json();
+                
+                if (data.message === "Successfully") {
+                    dispatch(setisLoggedIn(true));
+                    dispatch(setUserData(data.user));
+                } else {
+                    dispatch(setisLoggedIn(false));
+                    dispatch(setUserData(null));
+                }
+            } catch (error) {
+                console.error('Session check error:', error);
+                dispatch(setisLoggedIn(false));
+                dispatch(setUserData(null));
+            } finally {
+                setLoading(false);
+            }
+        };
 
-            <Route path="/dashboard" element={<Dashboard/>}/>
+        checkSession();
+    }, [dispatch]);
 
-            <Route path="/profile" element={<UserProfile isLoggedIn={isLoggedIn} 
-                                            setIsLoggedIn={setIsLoggedIn}/>}
-                                            />
+    if (loading) {
+        return <div>Loading...</div>;
+    }
 
-            <Route path="/order-history" element={<OrderHistory/>}/>
+    return (
+        <Router>
+            <Routes>
+                <Route 
+                    path="/" 
+                    element={
+                        isLoggedIn ? (
+                            <Navigate to="/orders" replace />
+                        ) : (
+                            <Navigate to="/authentication" replace />
+                        )
+                    } 
+                />
+                <Route 
+                    path="/authentication" 
+                    element={
+                        isLoggedIn ? (
+                            <Navigate to="/orders" replace />
+                        ) : (
+                            <Login />
+                        )
+                    } 
+                />
+                
+                {/* Protected routes */}
+                <Route element={<ProtectedRoute isLoggedIn={isLoggedIn}><AppLayout /></ProtectedRoute>}>
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/profile" element={<UserProfile />} />
+                    <Route path="/order-history" element={<OrderHistory />} />
+                    <Route path="/notifications" element={<Notifications />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/user-management" element={<UserManagement />} />
+                </Route>
+            </Routes>
+        </Router>
+    );
+}
 
-            <Route path="/notifications" element={<Notifications />}/>
+const ProtectedRoute = ({ children, isLoggedIn }) => {
+    return isLoggedIn ? children : <Navigate to="/authentication" replace />;
+};
 
-            <Route path="/reports" element={<Reports />}/>
-
-            <Route path="/settings" element={<Settings />}/>
-
-            <Route path="/user-management" element={<UserManagement />}/>
-
-        </Routes>
-    </Router>
-    )} 
-            
 export default App;

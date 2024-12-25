@@ -1,96 +1,94 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useSelector , useDispatch} from 'react-redux'; // If using Redux to track login status
-// Create a context for WebSocket
-const WebSocketContext = createContext();
-import { setcards } from '@/Reducer';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { setcards } from '../Reducer';
 
-// Custom hook to use the WebSocket context
-export const useWebSocket = () => {
-  return useContext(WebSocketContext);
-};
+const WebSocketContext = createContext(null);
 
-// WebSocket provider component
+export const useWebSocket = () => useContext(WebSocketContext);
+
 export const WebSocketProvider = ({ children }) => {
-    const isLoggedIn = useSelector((state) => state.gl_variables.isLoggedIn); // Get the login status from Redux, or pass it as a prop
+    const isLoggedIn = useSelector((state) => state.gl_variables.isLoggedIn);
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
     const dispatch = useDispatch();
-    const cards = useSelector((state) => state.gl_variables.cards)
 
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      // Only establish WebSocket connection if the user is logged in
-      const ws = new WebSocket('ws://192.168.12.163:8002/ws/socket-server/Server'); // Replace with your WebSocket server URL
-
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-        setIsConnected(true);
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        setIsConnected(false);
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error', error);
-      };
-
-      ws.onmessage = (event) => {
-        let newMessage;
-
+    const handleMessage = useCallback((event) => {
+        console.log('Raw WebSocket message received:', event.data);
+        
         try {
-            newMessage = JSON.parse(event.data);
-        } catch (error) {
-            console.error("Error parsing message:", error);
-            return; // Exit early if parsing fails
-        }
-    
-    
-        // Check if newMessage.message exists and has the expected structure
-        if (newMessage && newMessage.message) {
-            const { type, Data } = newMessage.message;
-    
-            if (type === "Order_Message" && Data) {
-                dispatch(setcards(Data))
-            } else if (type === "greeting" && Data) {
-                console.log("Greeting message:", newMessage.message);
-            } else if(type === "Order_Message_refresh" && Data ){
-                dispatch(setcards(Data))
-            } 
-            else {
-                console.warn("Invalid message format or missing 'Data' property", newMessage);
+            const parsedData = JSON.parse(event.data);
+            console.log('Parsed WebSocket message:', parsedData);
+            
+            const messageContent = parsedData.message;
+            
+            if (messageContent && messageContent.type) {
+                switch (messageContent.type) {
+                    case "Order_Message_refresh":
+                        console.log('Processing refresh data:', messageContent.Data);
+                        dispatch(setcards({
+                            type: "Order_Message_refresh",
+                            Data: messageContent.Data
+                        }));
+                        break;
+                    case "Order_Message":
+                        console.log('Processing new order:', messageContent.Data);
+                        dispatch(setcards({
+                            type: "Order_Message",
+                            Data: messageContent.Data
+                        }));
+                        break;
+                }
             }
+        } catch (error) {
+            console.error('Error processing WebSocket message:', error);
+        }
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            const ws = new WebSocket('wss://orders-management-control-centre-l52z5.ondigitalocean.app/ws/socket-server/Server');
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                setIsConnected(true);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                setIsConnected(false);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error', error);
+            };
+
+            ws.onmessage = handleMessage;
+
+            setSocket(ws);
+
+            return () => {
+                if (ws) {
+                    ws.close();
+                }
+            };
         } else {
-            console.error("Received message does not have the expected structure:", newMessage);
+            console.log('User not logged in, not establishing WebSocket connection');
+            setSocket(null);
+            setIsConnected(false);
         }
-    };
+    }, [isLoggedIn, handleMessage]);
 
-      setSocket(ws);
-
-      // Cleanup WebSocket connection on unmount or when user logs out
-      return () => {
-        if (ws) {
-          ws.close();
-        }
-      };
-    } else {
-      console.log('User not logged in, not establishing WebSocket connection');
-      setSocket(null); // Make sure socket is null if not logged in
-      setIsConnected(false);
-    }
-  }, [isLoggedIn]); // Re-run the effect whenever `isLoggedIn` changes
-
-  const sendMessage = (message) => {
-    if (socket && isConnected) {
-        socket.send(JSON.stringify(message));
-    }
-  };
-
-  return (
-    <WebSocketContext.Provider value={{ socket, isConnected, sendMessage }}>
-      {children}
-    </WebSocketContext.Provider>
-  );
+    return (
+        <WebSocketContext.Provider value={{ 
+            socket, 
+            isConnected, 
+            sendMessage: (message) => {
+                if (socket && isConnected) {
+                    socket.send(JSON.stringify(message));
+                }
+            }
+        }}>
+            {children}
+        </WebSocketContext.Provider>
+    );
 };

@@ -5,11 +5,11 @@ import { defineConfig } from "vite"
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '192.168.20.163',
+    host: '192.168.51.163',
     port: 5174,
     hmr: {
       protocol: 'ws',
-      host: '192.168.20.163',
+      host: '1192.168.51.163',
       port: 5174,
       clientPort: 5174,
       timeout: 1000,

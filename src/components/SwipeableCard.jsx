@@ -1,90 +1,121 @@
 import React, { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useSelector, useDispatch} from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { setselectedcard, setcards } from '@/Reducer';
 import { useWebSocket } from './WebSocketContext';
+import { Card, CardContent } from "@/components/ui/card";
 
-function SwipeableCard({ card, index, position }) {
-    const selectedcard = useSelector((state) => state.gl_variables.selectedcard);
-    const cards = useSelector((state) => state.gl_variables.cards);
-    const { socket, isConnected, sendMessage } = useWebSocket();
-    const [swiped, setSwiped] = useState(false);
-    const dispatch = useDispatch();
+function SwipeableCard({ card, index, position, onSelect }) {
+  const dispatch = useDispatch();
+  const { sendMessage } = useWebSocket();
+  const cards = useSelector((state) => state.gl_variables.cards);
+  const selectedcard = useSelector((state) => state.gl_variables.selectedcard);
+  const [swipeAmount, setSwipeAmount] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  if (!card?.Data?.containers) {
+    console.log('Invalid card structure:', card);
+    return null;
+  }
+
+  const orderData = card.Data;
+  const isActive = selectedcard && selectedcard.uuid === orderData.uuid;
+
+  console.log('Card Check:', {
+    currentUUID: orderData.uuid,
+    selectedUUID: selectedcard?.uuid,
+    isActive
+  });
+
+  const handleCardClick = (e) => {
+    if (swipeAmount === 0) {
+      e.stopPropagation();
+      dispatch(setselectedcard(orderData));
+      onSelect?.();
+    }
+  };
+
+  const handlers = useSwipeable({
+    onSwiping: (eventData) => {
+      if (eventData.dir === 'Right') {
+        setSwipeAmount(Math.max(0, Math.min(eventData.deltaX, 200)));
+      }
+    },
+    onSwipedRight: (eventData) => {
+      if (eventData.deltaX >= 150) {
+        handleComplete();
+      } else {
+        setSwipeAmount(0);
+      }
+    },
+    onSwiped: () => {
+      if (!isCompleting) {
+        setSwipeAmount(0);
+      }
+    },
+    trackMouse: true,
+    preventDefaultTouchmoveEvent: true,
+    trackTouch: true,
+  });
+
+  const handleComplete = () => {
+    setIsCompleting(true);
     
-    const handleOnSwipeRight = () => {
-        sendMessage({"type": "Completed Order", "Data": cards[index]})
-        const updatedCards = cards.filter((_, i) => i !== index);
-        dispatch(setcards(updatedCards));        
+    try {
+      if (navigator.vibrate) {
+        navigator.vibrate(100);
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
 
-    const calculateTotalCost = (containers) => {
-        let totalCost = 0;
-        
-        // Iterate through each container
-        Object.values(containers).forEach(container => {
-            // Each container is an array of items
-            container.forEach(item => {
-                // Add main dish price
-                totalCost += parseFloat(item.current_price || 0);
-            });
-        });
-        
-        return totalCost;
-    };
-
-    const getTotalItems = (containers) => {
-        let totalItems = 0;
-        Object.values(containers).forEach(container => {
-            container.forEach(item => {
-                totalItems += item.quantity || 1;
-            });
-        });
-        return totalItems;
-    };
-
-    const handlers = useSwipeable({
-        onSwipedRight: () => {
-            console.log(`Swiped right on card ${card.user_id}`);
-            setSwiped(true);
-            handleOnSwipeRight();
-        },
+    sendMessage({ 
+      type: "Completed_Order", 
+      Data: orderData,
+      completedAt: new Date().toISOString(),
+      serverID: "SERVER_ID"
     });
 
-    return (
-        <div {...handlers} className={'swipeable-card transition-transform duration-1500 ease-out'}>
-            <div
-                onClick={() => {dispatch(setselectedcard(card))}}
-                className={'rounded-lg ml-2 cursor-pointer transition-transform duration-200'}
-            >
-                <Card className="relative border rounded-lg shadow-md w-full md:w-[560px] h-[105px] p-3 flex flex-col items-center justify-center">
-                    <CardHeader className="w-full">
-                        <div className="flex justify-between w-full items-center">
-                            <CardTitle className="text-left">Order #{card.user_id}</CardTitle>
-                            <CardDescription className="text-right">{card.order_type}</CardDescription>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="w-full flex justify-center">
-                        <div className="flex justify-between items-start w-full">
-                            <div className="flex flex-col items-start">
-                                <p className="text-sm">Queue Number: {position}</p>
-                                <p className="text-sm">Items: {getTotalItems(card.containers)}</p>
-                            </div>
-                            <div className="text-right flex flex-col">
-                                <p className="text-lg">
-                                    <span className='font-bold text-teal-950'>Ghc </span>
-                                    <span>{calculateTotalCost(card.containers).toFixed(2)}</span>
-                                </p>
-                                <p className={'text-sm mt-2 text-blue-600'}>
-                                    {card.Payment}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+    setTimeout(() => {
+      dispatch(setcards({
+        type: "Order_Message_refresh",
+        Data: cards.filter(c => c.Data.uuid !== orderData.uuid)
+      }));
+      setIsCompleting(false);
+      setSwipeAmount(0);
+    }, 500);
+  };
+
+  return (
+    <Card
+      {...handlers}
+      onClick={handleCardClick}
+      className={`relative overflow-hidden transition-all duration-200 
+                 transform cursor-pointer
+                 ${isCompleting ? 'opacity-50' : 'opacity-100'}
+                 ${isActive ? 'ring-2 ring-yellow-500 shadow-lg shadow-yellow-500/20' : ''}
+                 hover:bg-gray-700/50`}
+      style={{
+        transform: `translateX(${swipeAmount}px)`,
+        backgroundColor: '#1f2937', // dark background
+      }}
+    >
+      <CardContent className="p-3">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <span className={`text-sm font-medium ${isActive ? 'text-yellow-400' : 'text-gray-300'}`}>
+              #{position}
+            </span>
+            <span className="text-sm font-medium text-white">{orderData.name}</span>
+          </div>
+          <span className="text-xs text-gray-400">{orderData.order_type}</span>
         </div>
-    );
+        <div className="mt-1">
+          <span className="text-xs text-gray-400">ID: {orderData.user_id}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default SwipeableCard;

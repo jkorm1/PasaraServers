@@ -1,94 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
-import OrderDetailSheet from './OrderDetailSheet';
-import { SkeletonCard } from './SkeletonCard';
-import SwipeableCard from './SwipeableCard.jsx';
 import { useSelector, useDispatch } from 'react-redux';
+import SwipeableCard from './SwipeableCard';
+import OrderDetailSheet from './OrderDetailSheet';
+import { setselectedcard } from '../Reducer';
+import { useWebSocket } from './WebSocketContext';
 
+function Orders() {
+  const cards = useSelector((state) => state.gl_variables.cards);
+  const userData = useSelector((state) => state.gl_variables.userData);
+  const dispatch = useDispatch();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [greeting, setGreeting] = useState('');
 
-function Orders({}) {
-    const [loading, setLoading] = useState(true);
-    const [cardStatus, setCardStatus] = useState({});
-    const [showingStatus, setShowingStatus] = useState('onProcessOrPending');
-    const cards = useSelector((state)=>state.gl_variables.cards)
+  useEffect(() => {
+    const getGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour < 12) return 'Good morning';
+      if (hour < 17) return 'Good afternoon';
+      return 'Good evening';
+    };
+    setGreeting(getGreeting());
+  }, []);
 
+  const handleCloseDetails = () => {
+    setIsSheetOpen(false);
+  };
 
-    // Effect to initialize card statuses and simulate loading
-      useEffect(()=>{
-        const timer = setTimeout(()=>{
-            setLoading(false)
-        },100);
-        return()=> clearTimeout(timer)
-      },[])
-
-
-    //const closeOrderDetail = () => {
-      //  if (window.confirm("Are you sure you want to close the order details?")) {
-        //    setSelectedOrder(null);
-          //  setExpandedCards([]);
-        //}
-    //};
-
-    /**const filteredCards = cards.filter(card => {
-        if (showingStatus === 'onProcessOrPending') {
-            return cardStatus[card.user_id] === 'On Process' || cardStatus[card.user_id] === 'Pending';
-        } else if (showingStatus === 'completed') {
-            return cardStatus[card.user_id] === 'Completed';
-        }
-        return false; // Ensure no cards are shown when neither button is active
-    });
-    */
-
-    useEffect(() => {
-        console.log(cards);
-    }, [cards]);
-
-    return (
-      <div className="bg-gray-200 h-screen flex overflow-hidden">
-        <Sidebar />
-          <div className="ml-[80px] p-4 w-full flex-grow overflow-auto">
-              <div className="space-y-4">
-
-                <div className="flex space-x-4 mb-4">
-                    <button
-                      className={`bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded ${showingStatus === 'onProcessOrPending' ? 'bg-blue-600' : ''}`}
-                      //onClick={() => setShowingStatus('onProcessOrPending')}
-                    >
-                        On Process
-                    </button>
-                    <button
-                      className={`bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded ${showingStatus === 'completed' ? 'bg-blue-600' : ''}`}
-                      //onClick={() => setShowingStatus('completed')}
-                    >
-                      Completed
-                    </button>
-                </div>
-
-                <div className="flex flex-col w-full md:w-[560px] space-y-4">
-                  {loading ? (
-                      Array.from({ length: 3 }).map((_, index) => <SkeletonCard key={index} />)
-                  ) : (
-                      cards.map((card, index) => (
-                          <SwipeableCard
-                            key={index}
-                            index={index}
-                            card={card}
-                            position={index + 1}
-                          />
-                      ))
-                  )}
-                </div>
-
-                <OrderDetailSheet
-                    //close={closeOrderDetail}
-                  />
-
-
-            </div>
+  return (
+    <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 max-w-5xl">
+      {/* Compact Greeting */}
+      <div className="flex items-center justify-between mb-4 bg-gray-800/50 rounded-lg p-2">
+        <div className="flex items-center space-x-2">
+          <span className="text-yellow-400 text-sm">👋</span>
+          <div>
+            <p className="text-sm text-gray-300">
+              {greeting}, <span className="text-white font-medium">{userData?.first_name || 'Server'}</span>
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              You have {cards?.length || 0} orders to prepare
+            </p>
           </div>
-    
+        </div>
+      </div>
+      
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-3 auto-rows-max">
+        {cards?.map((card, index) => (
+          <SwipeableCard
+            key={card.Data.uuid}
+            card={card}
+            index={index}
+            position={index + 1}
+            onSelect={() => setIsSheetOpen(true)}
+          />
+        ))}
+      </div>
+
+      {/* Order Detail Sheet */}
+      {isSheetOpen && <OrderDetailSheet close={handleCloseDetails} />}
     </div>
-    );
+  );
 }
 
 export default Orders;

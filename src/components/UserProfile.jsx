@@ -1,95 +1,111 @@
 import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { clearUserData } from '../Reducer'; // Fixed import path
+import { useWebSocket } from './WebSocketContext';
 
+const UserProfile = () => {
+    const userData = useSelector((state) => state.gl_variables.userData);
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
 
-const UserProfile = ({setIsLoggedIn}) => {
-  const user = {
-    name: "Solomon Attipoe",
-    role: "Salesperson",
-    email: "solomonattipoemensah@gmail.com",
-    phone: "+233543316245",
-    totalSales: 10000,
-    averageSale: 200,
-  };
+    const handleLogout = async () => {
+        try {
+            const response = await fetch('https://orders-management-control-centre-l52z5.ondigitalocean.app/servers/logout_user/', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
 
-  const navigate = useNavigate()
+            if (response.ok) {
+                dispatch(clearUserData());
+                navigate('/login');
+            } else {
+                console.error('Logout failed');
+            }
+        } catch (error) {
+            console.error('Error during logout:', error);
+        }
+    };
 
-    
-const handleLogout = async () => {
-      try {
-          // Send a request to logout the user on the backend
-          const response = await fetch('http://192.168.20.163:8002/servers/logout_user/', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({}),
-              credentials: 'include', // Ensure cookies are sent with the request
-          });
-  
-          const data = await response.json();
-  
-          if (data.message === "Logged Out") {
-              navigate('/authentication')
-              // Clear the cookies and client-side state
-              setIsLoggedIn(false); // Update the login state in parent
-              //Cookies.remove('isLoggedIn'); // Remove the session cookie
-              console.log("User logged out gracefully");
-  
-              // Optionally, you can redirect the user to the login page after logout:
-              // window.location.href = '/login';
-          } else {
-              console.error("Couldn't log out. Error:", data.message);
-          }
-      } catch (error) {
-          console.error("Error during logout:", error);
-      }
-  };
+    if (!userData) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-900">
+                <p className="text-gray-400 text-sm">Loading profile...</p>
+            </div>
+        );
+    }
 
-  return (
-    <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300 ease-in-out">
-      <div className="flex flex-col items-center mb-4 space-y-2">
-        <Avatar className="w-24 h-24">
-          <AvatarImage src="https://github.com/shadcn.png" />
-          <AvatarFallback>ATI</AvatarFallback>
-        </Avatar>
-        <h2 className="text-3xl font-semibold text-gray-900 dark:text-white">{user.name}</h2>
-        <p className="text-gray-500">{user.role}</p>
-        <p className="text-gray-700 dark:text-gray-300">{user.email}</p>
-        <p className="text-gray-700 dark:text-gray-300">{user.phone}</p>
-      </div>
+    return (
+        <div className="min-h-screen bg-gray-900 p-3 sm:p-4">
+            <div className="max-w-lg mx-auto bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+                {/* Header with Logout Button */}
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+                    <h1 className="text-lg font-semibold text-white">Profile</h1>
+                    <button
+                        onClick={handleLogout}
+                        className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                    >
+                        Logout
+                    </button>
+                </div>
 
-      <hr className="my-4 border-gray-200 dark:border-gray-700" />
+                {/* Profile Content */}
+                <div className="p-4 space-y-4">
+                    {/* Basic Info */}
+                    <div className="flex items-center space-x-3">
+                        <div className="h-12 w-12 rounded-full bg-gray-700 flex items-center justify-center">
+                            <span className="text-lg text-gray-300">
+                                {userData.first_name?.[0] || userData.username?.[0] || '?'}
+                            </span>
+                        </div>
+                        <div>
+                            <h2 className="text-base font-medium text-white">
+                                {userData.first_name} {userData.last_name}
+                            </h2>
+                            <p className="text-sm text-gray-400">{userData.role}</p>
+                        </div>
+                    </div>
 
-      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Sales Performance</h3>
-      <p>Total Sales: <span className="font-medium text-gray-900 dark:text-white">${user.totalSales}</span></p>
-      <p>Average Sale: <span className="font-medium text-gray-900 dark:text-white">${user.averageSale}</span></p>
-      
-      <hr className="my-4 border-gray-200 dark:border-gray-700" />
+                    {/* Contact Info */}
+                    <div className="grid gap-3">
+                        <div className="bg-gray-700/30 p-3 rounded-md">
+                            <p className="text-xs text-gray-400 mb-1">Username</p>
+                            <p className="text-sm text-white">{userData.username}</p>
+                        </div>
+                        <div className="bg-gray-700/30 p-3 rounded-md">
+                            <p className="text-xs text-gray-400 mb-1">Email</p>
+                            <p className="text-sm text-white">{userData.email}</p>
+                        </div>
+                        {userData.phone && (
+                            <div className="bg-gray-700/30 p-3 rounded-md">
+                                <p className="text-xs text-gray-400 mb-1">Phone</p>
+                                <p className="text-sm text-white">{userData.phone}</p>
+                            </div>
+                        )}
+                    </div>
 
-      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Account Settings</h3>
-      <ul className="list-disc list-inside mb-4 text-gray-900 dark:text-white">
-        <li><a href="#" className="text-blue-500 hover:underline dark:text-blue-400">Change Password</a></li>
-        <li><a href="#" className="text-blue-500 hover:underline dark:text-blue-400">Manage Payment Methods</a></li>
-        <li><a href="#" className="text-blue-500 hover:underline dark:text-blue-400">Notification Preferences</a></li>
-      </ul>
-
-      <hr className="my-4 border-gray-200 dark:border-gray-700" />
-
-      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Help & Support</h3>
-      <ul className="list-disc list-inside mb-4 text-gray-900 dark:text-white">
-        <li><a href="#" className="text-blue-500 hover:underline dark:text-blue-400">Help Center</a></li>
-        <li><a href="#" className="text-blue-500 hover:underline dark:text-blue-400">Contact Support</a></li>
-      </ul>
-
-      <div className="flex justify-center">
-        <button onClick={handleLogout} className="mt-4 bg-red-500 text-white font-bold py-2 px-4 rounded-full hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-colors duration-300 ease-in-out">
-          Logout
-        </button>
-      </div>
-    </div>
-  );
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-700/30 p-3 rounded-md">
+                            <p className="text-xs text-gray-400 mb-1">Total Sales</p>
+                            <p className="text-base font-medium text-white">
+                                GH₵{userData.total_sales?.toFixed(2) || '0.00'}
+                            </p>
+                        </div>
+                        <div className="bg-gray-700/30 p-3 rounded-md">
+                            <p className="text-xs text-gray-400 mb-1">Average Sale</p>
+                            <p className="text-base font-medium text-white">
+                                GH₵{userData.average_sale?.toFixed(2) || '0.00'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default UserProfile;
